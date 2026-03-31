@@ -131,7 +131,7 @@ export default function CaptureModal({ onClose, onSave }: CaptureModalProps) {
     >
       <div
         className="w-full sm:w-[540px] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col"
-        style={{ backgroundColor: '#FFFFFF', maxHeight: '92vh', overflow: 'hidden' }}
+        style={{ backgroundColor: '#FFFFFF', maxHeight: '94svh', overflow: 'hidden' }}
       >
         {/* Header */}
         <div
@@ -154,7 +154,7 @@ export default function CaptureModal({ onClose, onSave }: CaptureModalProps) {
         <div className="overflow-y-auto px-6 py-5 flex flex-col gap-5">
 
           {/* Tipo */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {TYPES.map((t) => (
               <button
                 key={t.value}
@@ -332,8 +332,11 @@ export default function CaptureModal({ onClose, onSave }: CaptureModalProps) {
 
         {/* Footer */}
         <div
-          className="flex gap-3 px-6 py-4"
-          style={{ borderTop: '1px solid rgba(44,44,44,0.08)' }}
+          className="flex gap-3 px-6 pt-4 flex-shrink-0"
+          style={{
+            borderTop: '1px solid rgba(44,44,44,0.08)',
+            paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+          }}
         >
           <button
             onClick={handleSave}

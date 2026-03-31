@@ -266,8 +266,11 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
         {/* Footer */}
         {isDirty && (
           <div
-            className="flex gap-3 px-6 py-4 flex-shrink-0"
-            style={{ borderTop: '1px solid rgba(44,44,44,0.08)' }}
+            className="flex gap-3 px-6 pt-4 flex-shrink-0"
+            style={{
+              borderTop: '1px solid rgba(44,44,44,0.08)',
+              paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+            }}
           >
             <button
               onClick={() => {

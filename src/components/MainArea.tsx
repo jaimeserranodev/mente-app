@@ -195,8 +195,12 @@ export default function MainArea({
     >
       {/* ── Header ── */}
       <div
-        className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 flex-shrink-0"
-        style={{ borderBottom: '1px solid rgba(44,44,44,0.08)' }}
+        className="flex items-center justify-between px-4 md:px-8 flex-shrink-0"
+        style={{
+          borderBottom: '1px solid rgba(44,44,44,0.08)',
+          paddingTop: 'max(16px, env(safe-area-inset-top))',
+          paddingBottom: 16,
+        }}
       >
         <div className="flex items-center gap-3">
           {/* Hamburger — mobile only */}
