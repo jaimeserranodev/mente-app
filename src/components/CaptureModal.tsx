@@ -125,13 +125,13 @@ export default function CaptureModal({ onClose, onSave }: CaptureModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       style={{ backgroundColor: 'rgba(26,26,26,0.4)', backdropFilter: 'blur(2px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="rounded-2xl shadow-2xl flex flex-col"
-        style={{ backgroundColor: '#FFFFFF', width: 540, maxHeight: '88vh', overflow: 'hidden' }}
+        className="w-full sm:w-[540px] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col"
+        style={{ backgroundColor: '#FFFFFF', maxHeight: '92vh', overflow: 'hidden' }}
       >
         {/* Header */}
         <div

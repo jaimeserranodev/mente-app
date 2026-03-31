@@ -1,0 +1,25 @@
+{
+  "name": "Mente — Segundo Cerebro",
+  "short_name": "Mente",
+  "description": "Tu segundo cerebro personal",
+  "start_url": "/mente-app/",
+  "scope": "/mente-app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ECEADE",
+  "theme_color": "#1A1A1A",
+  "icons": [
+    {
+      "src": "/mente-app/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/mente-app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

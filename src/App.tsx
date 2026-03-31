@@ -17,6 +17,7 @@ function MainApp() {
   const [area, setArea] = useState<Area>('Todas')
   const [searchQuery, setSearchQuery] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // ── Loading splash ──────────────────────────────────────────────
   if (loading) {
@@ -40,7 +41,6 @@ function MainApp() {
 
   // ── Filtrado ────────────────────────────────────────────────────
   const filteredItems = items.filter((item) => {
-    // Filtro por vista
     if (view === 'ideas' && item.type !== 'idea') return false
     if (view === 'tareas' && item.type !== 'tarea') return false
     if (view === 'proyectos' && item.type !== 'proyecto') return false
@@ -51,11 +51,7 @@ function MainApp() {
     if (view === 'hechas') {
       if (item.type !== 'tarea' || item.status !== 'hecha') return false
     }
-
-    // Filtro por área
     if (area !== 'Todas' && item.area !== area) return false
-
-    // Filtro por búsqueda
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       return (
@@ -63,20 +59,30 @@ function MainApp() {
         (item.description?.toLowerCase().includes(q) ?? false)
       )
     }
-
     return true
   })
 
   // ── Render ──────────────────────────────────────────────────────
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#ECEADE' }}>
+      {/* Overlay for mobile sidebar */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          style={{ backgroundColor: 'rgba(26,26,26,0.4)' }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <Sidebar
         items={items}
         view={view}
-        onViewChange={setView}
+        onViewChange={(v) => { setView(v); setSidebarOpen(false) }}
         user={user}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
       <MainArea
@@ -87,6 +93,7 @@ function MainApp() {
         onCapture={() => setShowModal(true)}
         onUpdateItem={updateItem}
         onDeleteItem={deleteItem}
+        onOpenSidebar={() => setSidebarOpen(true)}
       />
 
       {showModal && (
@@ -100,7 +107,6 @@ function MainApp() {
 }
 
 export default function App() {
-  // Restaurar ruta tras redirección del 404.html de GitHub Pages
   const redirect = new URLSearchParams(window.location.search).get('p')
   if (redirect) {
     window.history.replaceState(null, '', redirect)

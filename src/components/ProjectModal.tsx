@@ -91,16 +91,15 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       style={{ backgroundColor: 'rgba(26,26,26,0.4)', backdropFilter: 'blur(2px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="rounded-2xl shadow-2xl flex flex-col"
+        className="w-full sm:w-[560px] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col"
         style={{
           backgroundColor: '#ECEADE',
-          width: 560,
-          maxHeight: '88vh',
+          maxHeight: '92vh',
           overflow: 'hidden',
         }}
       >

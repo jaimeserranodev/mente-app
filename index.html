@@ -2,11 +2,29 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Mente — Segundo Cerebro</title>
+
+    <!-- PWA / Theme -->
+    <meta name="theme-color" content="#1A1A1A" />
+    <meta name="description" content="Tu segundo cerebro personal" />
+    <link rel="manifest" href="/mente-app/manifest.json" />
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mente" />
+    <link rel="apple-touch-icon" href="/mente-app/apple-touch-icon.png" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/mente-app/sw.js');
+        });
+      }
+    </script>
   </body>
 </html>

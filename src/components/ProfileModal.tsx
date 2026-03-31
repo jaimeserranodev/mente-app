@@ -67,13 +67,13 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       style={{ backgroundColor: 'rgba(26,26,26,0.4)', backdropFilter: 'blur(2px)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="rounded-2xl shadow-2xl flex flex-col"
-        style={{ backgroundColor: '#ECEADE', width: 400, overflow: 'hidden' }}
+        className="w-full sm:w-[400px] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col"
+        style={{ backgroundColor: '#ECEADE', maxHeight: '92vh', overflow: 'hidden' }}
       >
         {/* Header */}
         <div
