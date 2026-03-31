@@ -100,8 +100,14 @@ function MainApp() {
 }
 
 export default function App() {
+  // Restaurar ruta tras redirección del 404.html de GitHub Pages
+  const redirect = new URLSearchParams(window.location.search).get('p')
+  if (redirect) {
+    window.history.replaceState(null, '', redirect)
+  }
+
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/mente-app">
       <Routes>
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="*" element={<MainApp />} />
