@@ -40,6 +40,7 @@ export function useAuth() {
       return
     }
     if (data?.url) {
+      console.log('[Auth] URL generada por Supabase:', data.url)
       window.location.href = data.url
     } else {
       setAuthError(`Sin URL de redirección. Respuesta: ${JSON.stringify(data)}`)
