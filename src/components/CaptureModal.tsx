@@ -56,9 +56,24 @@ export default function CaptureModal({ onClose, onSave }: CaptureModalProps) {
   const [subtasks, setSubtasks]         = useState<string[]>([])
 
   function parseSubtasks(raw: string): string[] {
-    return raw
+    const text = raw.trim()
+    if (!text) return []
+    // Multiline: split by newlines (ChatGPT, numbered, bullets…)
+    if (text.includes('\n')) {
+      return text
+        .split('\n')
+        .map((s) =>
+          s
+            .replace(/^\s*\d+[.)]\s*/, '')   // "1. " or "1) "
+            .replace(/^\s*[-•*·]\s*/, '')    // "- " or "• " or "* "
+            .trim()
+        )
+        .filter(Boolean)
+    }
+    // Single line with inline dash separators
+    return text
       .split(/(?<!\S)-\s+/)
-      .map((s) => s.replace(/^-\s*/, '').trim())
+      .map((s) => s.replace(/^[-•*]\s*/, '').trim())
       .filter(Boolean)
   }
 
@@ -81,11 +96,16 @@ export default function CaptureModal({ onClose, onSave }: CaptureModalProps) {
   }
 
   function handleSubtaskPaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    // Always intercept — input[type=text] strips newlines before onChange
     const pasted = e.clipboardData.getData('text')
-    if (pasted.includes('-')) {
+    const parts = parseSubtasks(pasted)
+    if (parts.length > 1) {
+      // Multi-task paste: import all at once
       e.preventDefault()
-      addSubtask(pasted)
+      setSubtasks((prev) => [...prev, ...parts])
+      setSubtaskInput('')
     }
+    // Single item: let it paste normally so user can edit before adding
   }
 
   async function handleSave() {
@@ -278,7 +298,7 @@ export default function CaptureModal({ onClose, onSave }: CaptureModalProps) {
                       <span className="flex-1 text-sm" style={{ color: '#2C2C2C' }}>{task}</span>
                       <button
                         onClick={() => removeSubtask(i)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center"
                         style={{ color: '#8C8C7A', fontSize: 16, lineHeight: 1 }}
                       >
                         ×
