@@ -182,13 +182,13 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Descripción del proyecto..."
-            rows={2}
+            rows={3}
             style={{
               width: '100%',
-              padding: '8px 10px',
-              borderRadius: 8,
-              border: '1px solid rgba(44,44,44,0.12)',
-              backgroundColor: '#F6F3EC',
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1.5px solid rgba(44,44,44,0.2)',
+              backgroundColor: '#FFFFFF',
               color: '#2C2C2C',
               fontSize: 14,
               outline: 'none',
