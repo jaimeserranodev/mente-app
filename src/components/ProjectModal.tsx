@@ -21,15 +21,30 @@ const STATUS_COLORS: Record<string, string> = {
   completado: '#4CAF7D',
 }
 
-const inputStyle = {
-  width: '100%',
-  padding: '8px 10px',
-  borderRadius: 8,
-  border: '1px solid rgba(44,44,44,0.12)',
-  backgroundColor: '#F6F3EC',
-  color: '#2C2C2C',
-  fontSize: 14,
-  outline: 'none',
+/** Parses any common task list format: numbered, bullets, dashes, plain lines */
+function parseLines(raw: string): string[] {
+  const text = raw.trim()
+  if (!text) return []
+
+  // Multiline: split by newlines (ChatGPT output, numbered lists, etc.)
+  if (text.includes('\n')) {
+    return text
+      .split('\n')
+      .map((s) =>
+        s
+          .replace(/^\s*\d+[.)]\s*/, '')  // "1. " or "1) "
+          .replace(/^\s*[-•*·]\s*/, '')   // "- " or "• " or "* "
+          .trim()
+      )
+      .filter(Boolean)
+  }
+
+  // Single line with inline dash separators: "- task1 - task2"
+  const parts = text
+    .split(/(?<!\S)-\s+/)
+    .map((s) => s.replace(/^[-•*]\s*/, '').trim())
+    .filter(Boolean)
+  return parts
 }
 
 export default function ProjectModal({ project, onClose, onUpdate, onDelete }: Props) {
@@ -63,27 +78,31 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
     onClose()
   }
 
-  function parseAndAdd(raw: string) {
-    const parts = raw
-      .split(/(?<!\S)-\s+/)  // split on " - " separators
-      .map((s) => s.replace(/^-\s*/, '').trim())
-      .filter(Boolean)
-    parts.forEach((t) => addTask(t))
+  async function commitTaskInput() {
+    const lines = parseLines(taskInput)
+    if (!lines.length) return
     setTaskInput('')
+    for (const line of lines) {
+      await addTask(line)
+    }
   }
 
   function handleTaskKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== 'Enter') return
-    e.preventDefault()
-    if (taskInput.trim()) parseAndAdd(taskInput)
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitTaskInput()
+    }
   }
 
   function handleTaskPaste(e: React.ClipboardEvent<HTMLInputElement>) {
     const pasted = e.clipboardData.getData('text')
-    if (pasted.includes('-')) {
+    const lines = parseLines(pasted)
+    if (lines.length > 1) {
       e.preventDefault()
-      parseAndAdd(pasted)
+      setTaskInput('')
+      lines.forEach((line) => addTask(line))
     }
+    // Single line: let it paste normally and user can press Añadir/Enter
   }
 
   const done = tasks.filter((t) => t.done).length
@@ -97,34 +116,35 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
     >
       <div
         className="w-full sm:w-[560px] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col"
-        style={{
-          backgroundColor: '#ECEADE',
-          maxHeight: '92vh',
-          overflow: 'hidden',
-        }}
+        style={{ backgroundColor: '#ECEADE', maxHeight: '94svh', overflow: 'hidden' }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-6 py-5 flex-shrink-0"
+          className="flex items-center justify-between px-4 sm:px-6 py-4 flex-shrink-0"
           style={{ borderBottom: '1px solid rgba(44,44,44,0.08)' }}
         >
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#6B7FD4' }} />
-            <span className="text-xs font-medium uppercase tracking-widest" style={{ color: '#6B7FD4' }}>
-              Proyecto
-            </span>
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#6B7FD4' }} />
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="font-semibold text-base bg-transparent outline-none"
+              style={{ color: '#1A1A1A', minWidth: 0 }}
+              placeholder="Nombre del proyecto"
+            />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
             <button
               onClick={handleDeleteProject}
-              className="text-xs px-3 py-1.5 rounded-lg transition-colors hover:bg-red-100"
+              className="text-xs px-2.5 py-1.5 rounded-lg transition-colors hover:bg-red-100"
               style={{ color: '#C0392B' }}
             >
               Eliminar
             </button>
             <button
               onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:bg-black/10"
+              className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-black/10"
               style={{ color: '#8C8C7A' }}
             >
               ✕
@@ -133,25 +153,10 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 flex flex-col gap-5">
-
-          {/* Título */}
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            style={{
-              ...inputStyle,
-              fontSize: 18,
-              fontWeight: 600,
-              padding: '10px 12px',
-              color: '#1A1A1A',
-            }}
-            placeholder="Nombre del proyecto"
-          />
+        <div className="overflow-y-auto flex-1 px-4 sm:px-6 py-4 flex flex-col gap-4">
 
           {/* Estado */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {PROJECT_STATUSES.map((s) => (
               <button
                 key={s.value}
@@ -177,33 +182,72 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Descripción del proyecto..."
-            rows={3}
-            style={{ ...inputStyle, resize: 'vertical' }}
+            rows={2}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 8,
+              border: '1px solid rgba(44,44,44,0.12)',
+              backgroundColor: '#F6F3EC',
+              color: '#2C2C2C',
+              fontSize: 14,
+              outline: 'none',
+              resize: 'none',
+            }}
           />
 
-          {/* Separador To-Do */}
+          {/* Guardar cambios si hay */}
+          {isDirty && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setTitle(project.title)
+                  setDescription(project.description ?? '')
+                  setStatus(project.status ?? 'activo')
+                }}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-70"
+                style={{ backgroundColor: 'rgba(44,44,44,0.08)', color: '#5C5C4E' }}
+              >
+                Descartar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!title.trim() || saving}
+                className="flex-1 py-2 rounded-xl text-sm font-medium"
+                style={{
+                  backgroundColor: title.trim() && !saving ? '#1A1A1A' : 'rgba(44,44,44,0.2)',
+                  color: title.trim() && !saving ? '#FFFFFF' : '#8C8C7A',
+                  cursor: title.trim() && !saving ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {saving ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          )}
+
+          {/* Separador Tareas */}
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8C8C7A' }}>
               Tareas
             </span>
             {total > 0 && (
               <span className="text-xs" style={{ color: '#B0AD9F' }}>
-                {done}/{total} completadas
+                {done}/{total} hechas
               </span>
             )}
             <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(44,44,44,0.08)' }} />
           </div>
 
           {/* Lista de tareas */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             {tasks.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center gap-3 group px-2 py-1.5 rounded-lg hover:bg-black/5 transition-colors"
+                className="flex items-center gap-3 group px-2 py-2 rounded-lg hover:bg-black/5 active:bg-black/5 transition-colors"
               >
                 <button
                   onClick={() => toggleTask(task.id, !task.done)}
-                  className="w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border transition-all"
+                  className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border transition-all"
                   style={{
                     borderColor: task.done ? '#4CAF7D' : 'rgba(44,44,44,0.25)',
                     backgroundColor: task.done ? '#4CAF7D' : 'transparent',
@@ -224,12 +268,13 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
                 >
                   {task.title}
                 </span>
+                {/* Delete — always visible on mobile */}
                 <button
                   onClick={() => deleteTask(task.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded"
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center rounded-lg hover:bg-black/10"
                   style={{ color: '#8C8C7A' }}
                 >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   </svg>
                 </button>
@@ -237,11 +282,10 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
             ))}
 
             {/* Input nueva tarea */}
-            <div className="flex items-center gap-3 px-2 py-1.5">
-              <span
-                className="w-4 h-4 rounded border flex-shrink-0"
-                style={{ borderColor: 'rgba(44,44,44,0.15)' }}
-              />
+            <div
+              className="flex items-center gap-2 mt-1 rounded-xl overflow-hidden"
+              style={{ border: '1.5px solid rgba(44,44,44,0.12)', backgroundColor: '#F6F3EC' }}
+            >
               <input
                 ref={inputRef}
                 type="text"
@@ -249,9 +293,10 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
                 onChange={(e) => setTaskInput(e.target.value)}
                 onKeyDown={handleTaskKeyDown}
                 onPaste={handleTaskPaste}
-                placeholder="Añadir tarea… (pega - tarea1 - tarea2 para varias)"
+                placeholder="Añadir tarea o pegar lista..."
                 style={{
                   flex: 1,
+                  padding: '10px 12px',
                   background: 'transparent',
                   border: 'none',
                   outline: 'none',
@@ -259,44 +304,27 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
                   color: '#2C2C2C',
                 }}
               />
+              <button
+                onClick={commitTaskInput}
+                disabled={!taskInput.trim()}
+                className="px-3 py-2 mr-1 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: taskInput.trim() ? '#1A1A1A' : 'transparent',
+                  color: taskInput.trim() ? '#FFFFFF' : '#B0AD9F',
+                  cursor: taskInput.trim() ? 'pointer' : 'default',
+                }}
+              >
+                +
+              </button>
             </div>
+            <p className="text-xs px-1 mt-1" style={{ color: '#B0AD9F' }}>
+              Pega una lista de ChatGPT y se importarán todas las tareas automáticamente
+            </p>
           </div>
         </div>
 
-        {/* Footer */}
-        {isDirty && (
-          <div
-            className="flex gap-3 px-6 pt-4 flex-shrink-0"
-            style={{
-              borderTop: '1px solid rgba(44,44,44,0.08)',
-              paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
-            }}
-          >
-            <button
-              onClick={() => {
-                setTitle(project.title)
-                setDescription(project.description ?? '')
-                setStatus(project.status ?? 'activo')
-              }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-70"
-              style={{ backgroundColor: 'rgba(44,44,44,0.08)', color: '#5C5C4E' }}
-            >
-              Descartar
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!title.trim() || saving}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium"
-              style={{
-                backgroundColor: title.trim() && !saving ? '#1A1A1A' : 'rgba(44,44,44,0.2)',
-                color: title.trim() && !saving ? '#FFFFFF' : '#8C8C7A',
-                cursor: title.trim() && !saving ? 'pointer' : 'not-allowed',
-              }}
-            >
-              {saving ? 'Guardando…' : 'Guardar cambios'}
-            </button>
-          </div>
-        )}
+        {/* Safe area bottom spacer */}
+        <div style={{ paddingBottom: 'env(safe-area-inset-bottom)', flexShrink: 0 }} />
       </div>
     </div>
   )
