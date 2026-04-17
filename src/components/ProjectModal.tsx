@@ -1,4 +1,4 @@
-import { useState, useRef, KeyboardEvent } from 'react'
+import { useState, useRef, useLayoutEffect, KeyboardEvent } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -48,18 +48,19 @@ function parseLines(raw: string): string[] {
     return text
       .split('\n')
       .map((s) =>
-        s
-          .replace(/^\s*\d+[.)]\s*/, '')
-          .replace(/^\s*[-•*·]\s*/, '')
-          .trim()
+        s.replace(/^\s*\d+[.)]\s*/, '').replace(/^\s*[-•*·]\s*/, '').trim()
       )
       .filter(Boolean)
   }
-  const parts = text
+  return text
     .split(/(?<!\S)-\s+/)
     .map((s) => s.replace(/^[-•*]\s*/, '').trim())
     .filter(Boolean)
-  return parts
+}
+
+function autoResize(el: HTMLTextAreaElement) {
+  el.style.height = 'auto'
+  el.style.height = el.scrollHeight + 'px'
 }
 
 function SortableTask({
@@ -71,58 +72,55 @@ function SortableTask({
   onToggle: (id: string, done: boolean) => void
   onDelete: (id: string) => void
 }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  }
+  const {
+    attributes, listeners, setNodeRef, setActivatorNodeRef,
+    transform, transition, isDragging,
+  } = useSortable({ id: task.id })
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-2 group px-2 py-2 rounded-lg hover:bg-black/5"
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      className="flex items-center gap-2 group px-1 py-2.5 rounded-xl hover:bg-black/5"
     >
       {/* Drag handle */}
       <div
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 w-7 h-7 flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
-        style={{ color: '#C8C4B8', touchAction: 'none' }}
+        className="flex-shrink-0 w-8 h-8 flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+        style={{ color: '#D0CCB8', touchAction: 'none' }}
       >
         <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
-          <circle cx="3" cy="2.5" r="1.5" />
-          <circle cx="7" cy="2.5" r="1.5" />
-          <circle cx="3" cy="7" r="1.5" />
-          <circle cx="7" cy="7" r="1.5" />
-          <circle cx="3" cy="11.5" r="1.5" />
-          <circle cx="7" cy="11.5" r="1.5" />
+          <circle cx="3" cy="2.5" r="1.5" /><circle cx="7" cy="2.5" r="1.5" />
+          <circle cx="3" cy="7" r="1.5" /><circle cx="7" cy="7" r="1.5" />
+          <circle cx="3" cy="11.5" r="1.5" /><circle cx="7" cy="11.5" r="1.5" />
         </svg>
       </div>
 
       {/* Checkbox */}
       <button
         onClick={() => onToggle(task.id, !task.done)}
-        className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border transition-all"
+        className="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center border-2 transition-all"
         style={{
-          borderColor: task.done ? '#4CAF7D' : 'rgba(44,44,44,0.25)',
+          borderColor: task.done ? '#4CAF7D' : 'rgba(44,44,44,0.2)',
           backgroundColor: task.done ? '#4CAF7D' : 'transparent',
         }}
       >
         {task.done && (
-          <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-            <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+            <path d="M1 4L3.8 7L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
       </button>
 
       {/* Title */}
       <span
-        className="flex-1 text-sm"
+        className="flex-1 text-sm leading-snug"
         style={{
           color: task.done ? '#B0AD9F' : '#2C2C2C',
           textDecoration: task.done ? 'line-through' : 'none',
@@ -134,10 +132,10 @@ function SortableTask({
       {/* Delete */}
       <button
         onClick={() => onDelete(task.id)}
-        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center rounded-lg hover:bg-black/10"
-        style={{ color: '#8C8C7A' }}
+        className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-black/10"
+        style={{ color: '#B0AD9F' }}
       >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
           <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
@@ -152,20 +150,23 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
   const [taskInput, setTaskInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [activeTask, setActiveTask] = useState<ProjectTask | null>(null)
+
+  const descRef = useRef<HTMLTextAreaElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { tasks, addTask, toggleTask, deleteTask, reorderTasks } = useProjectTasks(project.id)
 
+  // Auto-resize textarea — useLayoutEffect + rAF ensures DOM is fully painted
+  useLayoutEffect(() => {
+    const el = descRef.current
+    if (!el) return
+    requestAnimationFrame(() => autoResize(el))
+  }, [])
+
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 150, tolerance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
   const isDirty =
@@ -184,25 +185,15 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
     setSaving(false)
   }
 
-  async function handleDeleteProject() {
-    await onDelete(project.id)
-    onClose()
-  }
-
   async function commitTaskInput() {
     const lines = parseLines(taskInput)
     if (!lines.length) return
     setTaskInput('')
-    for (const line of lines) {
-      await addTask(line)
-    }
+    for (const line of lines) await addTask(line)
   }
 
   function handleTaskKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      commitTaskInput()
-    }
+    if (e.key === 'Enter') { e.preventDefault(); commitTaskInput() }
   }
 
   function handleTaskPaste(e: React.ClipboardEvent<HTMLInputElement>) {
@@ -215,19 +206,13 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
     }
   }
 
-  function handleDragStart(event: DragEndEvent) {
-    const { active } = event
-    setActiveTask(tasks.find((t) => t.id === active.id) ?? null)
-  }
-
   function handleDragEnd(event: DragEndEvent) {
     setActiveTask(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
     const oldIndex = tasks.findIndex((t) => t.id === active.id)
     const newIndex = tasks.findIndex((t) => t.id === over.id)
-    const reordered = arrayMove(tasks, oldIndex, newIndex)
-    reorderTasks(reordered.map((t) => t.id))
+    reorderTasks(arrayMove(tasks, oldIndex, newIndex).map((t) => t.id))
   }
 
   const done = tasks.filter((t) => t.done).length
@@ -243,59 +228,55 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
         className="w-full sm:w-[560px] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col"
         style={{ backgroundColor: '#ECEADE', maxHeight: '94svh', overflow: 'hidden' }}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <div
-          className="flex items-center justify-between px-4 sm:px-6 py-4 flex-shrink-0"
+          className="flex items-center gap-2 px-4 sm:px-5 py-4 flex-shrink-0"
           style={{ borderBottom: '1px solid rgba(44,44,44,0.08)' }}
         >
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#6B7FD4' }} />
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="font-semibold text-base bg-transparent outline-none"
-              style={{ color: '#1A1A1A', minWidth: 0 }}
-              placeholder="Nombre del proyecto"
-            />
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-            <button
-              onClick={handleDeleteProject}
-              className="text-xs px-2.5 py-1.5 rounded-lg transition-colors hover:bg-red-100"
-              style={{ color: '#C0392B' }}
-            >
-              Eliminar
-            </button>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-black/10"
-              style={{ color: '#8C8C7A' }}
-            >
-              ✕
-            </button>
-          </div>
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[status] }} />
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="flex-1 font-semibold text-base bg-transparent outline-none min-w-0"
+            style={{ color: '#1A1A1A' }}
+            placeholder="Nombre del proyecto"
+          />
+          <button
+            onClick={() => { onDelete(project.id); onClose() }}
+            className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
+            style={{ color: '#C0392B' }}
+          >
+            Eliminar
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/10"
+            style={{ color: '#8C8C7A' }}
+          >
+            ✕
+          </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-4 sm:px-6 py-4 flex flex-col gap-4">
+        {/* ── Body ── */}
+        <div className="overflow-y-auto flex-1 px-4 sm:px-5 py-4 flex flex-col gap-5">
 
           {/* Estado */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2">
             {PROJECT_STATUSES.map((s) => (
               <button
                 key={s.value}
                 onClick={() => setStatus(s.value)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all"
                 style={{
-                  backgroundColor: status === s.value ? STATUS_COLORS[s.value] + '20' : 'rgba(44,44,44,0.05)',
+                  backgroundColor: status === s.value ? STATUS_COLORS[s.value] + '18' : 'rgba(44,44,44,0.06)',
                   border: `1.5px solid ${status === s.value ? STATUS_COLORS[s.value] : 'transparent'}`,
-                  color: status === s.value ? STATUS_COLORS[s.value] : '#5C5C4E',
+                  color: status === s.value ? STATUS_COLORS[s.value] : '#8C8C7A',
                 }}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: status === s.value ? STATUS_COLORS[s.value] : '#8C8C7A' }}
+                  style={{ backgroundColor: status === s.value ? STATUS_COLORS[s.value] : '#B0AD9F' }}
                 />
                 {s.label}
               </button>
@@ -304,35 +285,30 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
 
           {/* Descripción */}
           <textarea
+            ref={descRef}
             value={description}
             onChange={(e) => {
               setDescription(e.target.value)
-              const el = e.target
-              el.style.height = 'auto'
-              el.style.height = el.scrollHeight + 'px'
-            }}
-            onFocus={(e) => {
-              const el = e.target
-              el.style.height = 'auto'
-              el.style.height = el.scrollHeight + 'px'
+              autoResize(e.target)
             }}
             placeholder="Descripción del proyecto..."
-            rows={4}
             style={{
               width: '100%',
-              padding: '10px 12px',
-              borderRadius: 10,
-              border: '1.5px solid rgba(44,44,44,0.2)',
+              padding: '12px 14px',
+              borderRadius: 12,
+              border: '1.5px solid rgba(44,44,44,0.15)',
               backgroundColor: '#FFFFFF',
               color: '#2C2C2C',
-              fontSize: 14,
+              fontSize: 15,
+              lineHeight: '1.6',
+              minHeight: 72,
               outline: 'none',
               resize: 'none',
               overflow: 'hidden',
             }}
           />
 
-          {/* Guardar cambios */}
+          {/* Guardar / Descartar */}
           {isDirty && (
             <div className="flex gap-2">
               <button
@@ -340,8 +316,9 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
                   setTitle(project.title)
                   setDescription(project.description ?? '')
                   setStatus(project.status ?? 'activo')
+                  setTimeout(() => { if (descRef.current) autoResize(descRef.current) }, 0)
                 }}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-70"
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium hover:opacity-70"
                 style={{ backgroundColor: 'rgba(44,44,44,0.08)', color: '#5C5C4E' }}
               >
                 Descartar
@@ -349,38 +326,39 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
               <button
                 onClick={handleSave}
                 disabled={!title.trim() || saving}
-                className="flex-1 py-2 rounded-xl text-sm font-medium"
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium"
                 style={{
                   backgroundColor: title.trim() && !saving ? '#1A1A1A' : 'rgba(44,44,44,0.2)',
                   color: title.trim() && !saving ? '#FFFFFF' : '#8C8C7A',
-                  cursor: title.trim() && !saving ? 'pointer' : 'not-allowed',
                 }}
               >
-                {saving ? 'Guardando…' : 'Guardar'}
+                {saving ? 'Guardando…' : 'Guardar cambios'}
               </button>
             </div>
           )}
 
-          {/* Separador Tareas */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8C8C7A' }}>
-              Tareas
-            </span>
-            {total > 0 && (
-              <span className="text-xs" style={{ color: '#B0AD9F' }}>
-                {done}/{total} hechas
+          {/* ── Tareas ── */}
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8C8C7A' }}>
+                Tareas
               </span>
-            )}
-            <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(44,44,44,0.08)' }} />
-          </div>
+              {total > 0 && (
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full font-medium"
+                  style={{ backgroundColor: 'rgba(44,44,44,0.08)', color: '#5C5C4E' }}
+                >
+                  {done}/{total}
+                </span>
+              )}
+              <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(44,44,44,0.08)' }} />
+            </div>
 
-          {/* Lista de tareas con drag & drop */}
-          <div className="flex flex-col gap-1">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               modifiers={[restrictToVerticalAxis]}
-              onDragStart={handleDragStart}
+              onDragStart={(e) => setActiveTask(tasks.find((t) => t.id === e.active.id) ?? null)}
               onDragEnd={handleDragEnd}
             >
               <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -396,10 +374,10 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
               <DragOverlay>
                 {activeTask && (
                   <div
-                    className="flex items-center gap-2 px-2 py-2 rounded-lg shadow-lg"
-                    style={{ backgroundColor: '#ECEADE', border: '1.5px solid rgba(107,127,212,0.4)' }}
+                    className="flex items-center gap-2 px-1 py-2.5 rounded-xl shadow-lg"
+                    style={{ backgroundColor: '#ECEADE', border: '1.5px solid rgba(107,127,212,0.35)' }}
                   >
-                    <span className="w-7 h-7 flex items-center justify-center" style={{ color: '#C8C4B8' }}>
+                    <span className="w-8 h-8 flex items-center justify-center" style={{ color: '#D0CCB8' }}>
                       <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
                         <circle cx="3" cy="2.5" r="1.5" /><circle cx="7" cy="2.5" r="1.5" />
                         <circle cx="3" cy="7" r="1.5" /><circle cx="7" cy="7" r="1.5" />
@@ -414,7 +392,7 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
 
             {/* Input nueva tarea */}
             <div
-              className="flex items-center gap-2 mt-1 rounded-xl overflow-hidden"
+              className="flex items-center gap-2 mt-2 rounded-xl overflow-hidden"
               style={{ border: '1.5px solid rgba(44,44,44,0.12)', backgroundColor: '#F6F3EC' }}
             >
               <input
@@ -427,34 +405,29 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
                 placeholder="Añadir tarea o pegar lista..."
                 style={{
                   flex: 1,
-                  padding: '10px 12px',
+                  padding: '12px 14px',
                   background: 'transparent',
                   border: 'none',
                   outline: 'none',
-                  fontSize: 14,
+                  fontSize: 15,
                   color: '#2C2C2C',
                 }}
               />
               <button
                 onClick={commitTaskInput}
                 disabled={!taskInput.trim()}
-                className="px-3 py-2 mr-1 rounded-lg text-sm font-medium transition-all"
+                className="mr-2 w-8 h-8 flex items-center justify-center rounded-lg text-lg font-medium transition-all"
                 style={{
                   backgroundColor: taskInput.trim() ? '#1A1A1A' : 'transparent',
-                  color: taskInput.trim() ? '#FFFFFF' : '#B0AD9F',
-                  cursor: taskInput.trim() ? 'pointer' : 'default',
+                  color: taskInput.trim() ? '#FFFFFF' : '#C8C4B8',
                 }}
               >
                 +
               </button>
             </div>
-            <p className="text-xs px-1 mt-1" style={{ color: '#B0AD9F' }}>
-              Pega una lista de ChatGPT y se importarán todas las tareas automáticamente
-            </p>
           </div>
         </div>
 
-        {/* Safe area bottom spacer */}
         <div style={{ paddingBottom: 'env(safe-area-inset-bottom)', flexShrink: 0 }} />
       </div>
     </div>
