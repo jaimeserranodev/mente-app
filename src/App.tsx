@@ -8,6 +8,8 @@ import AuthCallback from './components/AuthCallback'
 import Sidebar, { View } from './components/Sidebar'
 import MainArea from './components/MainArea'
 import CaptureModal from './components/CaptureModal'
+import RandomTaskModal from './components/RandomTaskModal'
+import AIAssistantModal from './components/AIAssistantModal'
 
 function MainApp() {
   const { user, loading, authError, signInWithGoogle } = useAuth()
@@ -17,6 +19,8 @@ function MainApp() {
   const [area, setArea] = useState<Area>('Todas')
   const [searchQuery, setSearchQuery] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showRandomTask, setShowRandomTask] = useState(false)
+  const [showAI, setShowAI] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // ── Loading splash ──────────────────────────────────────────────
@@ -91,6 +95,8 @@ function MainApp() {
         area={area}
         onAreaChange={setArea}
         onCapture={() => setShowModal(true)}
+        onRandomTask={() => setShowRandomTask(true)}
+        onAIAssistant={() => setShowAI(true)}
         onUpdateItem={updateItem}
         onDeleteItem={deleteItem}
         onOpenSidebar={() => setSidebarOpen(true)}
@@ -100,6 +106,17 @@ function MainApp() {
         <CaptureModal
           onClose={() => setShowModal(false)}
           onSave={createItem}
+        />
+      )}
+
+      {showRandomTask && (
+        <RandomTaskModal onClose={() => setShowRandomTask(false)} />
+      )}
+
+      {showAI && (
+        <AIAssistantModal
+          onClose={() => setShowAI(false)}
+          onProjectCreated={() => setView('proyectos')}
         />
       )}
     </div>

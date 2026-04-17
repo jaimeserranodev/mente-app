@@ -9,6 +9,8 @@ interface MainAreaProps {
   area: Area
   onAreaChange: (a: Area) => void
   onCapture: () => void
+  onRandomTask: () => void
+  onAIAssistant: () => void
   onUpdateItem: (id: string, updates: Partial<Item>) => Promise<unknown>
   onDeleteItem: (id: string) => Promise<unknown>
   onOpenSidebar: () => void
@@ -181,6 +183,8 @@ export default function MainArea({
   area,
   onAreaChange,
   onCapture,
+  onRandomTask,
+  onAIAssistant,
   onUpdateItem,
   onDeleteItem,
   onOpenSidebar,
@@ -223,14 +227,32 @@ export default function MainArea({
           </h2>
         </div>
 
-        <button
-          onClick={onCapture}
-          className="flex items-center gap-1.5 px-3 md:px-4 py-2 md:py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-80 active:opacity-70"
-          style={{ backgroundColor: '#1A1A1A', color: '#FFFFFF' }}
-        >
-          <span className="text-base leading-none">+</span>
-          <span className="hidden sm:inline">Capturar</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRandomTask}
+            className="w-9 h-9 flex items-center justify-center rounded-xl transition-opacity hover:opacity-80 active:opacity-70"
+            style={{ backgroundColor: 'rgba(44,44,44,0.08)' }}
+            title="Tarea del momento"
+          >
+            🎲
+          </button>
+          <button
+            onClick={onAIAssistant}
+            className="w-9 h-9 flex items-center justify-center rounded-xl transition-opacity hover:opacity-80 active:opacity-70"
+            style={{ backgroundColor: 'rgba(44,44,44,0.08)' }}
+            title="Crear proyecto con IA"
+          >
+            ✨
+          </button>
+          <button
+            onClick={onCapture}
+            className="flex items-center gap-1.5 px-3 md:px-4 py-2 md:py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-80 active:opacity-70"
+            style={{ backgroundColor: '#1A1A1A', color: '#FFFFFF' }}
+          >
+            <span className="text-base leading-none">+</span>
+            <span className="hidden sm:inline">Capturar</span>
+          </button>
+        </div>
       </div>
 
       {/* ── Area tabs ── */}
