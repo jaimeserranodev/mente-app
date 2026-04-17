@@ -9,7 +9,7 @@ export function useProjectTasks(projectId: string) {
       .from('project_tasks')
       .select('*')
       .eq('project_id', projectId)
-      .order('created_at', { ascending: true })
+      .order('position', { ascending: true })
       .then(({ data, error }) => {
         if (error) console.error('[useProjectTasks] fetch:', error.message)
         else setTasks(data ?? [])
@@ -20,9 +20,13 @@ export function useProjectTasks(projectId: string) {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { console.error('[useProjectTasks] sin sesión'); return }
 
+    const nextPosition = tasks.length > 0
+      ? Math.max(...tasks.map((t) => t.position)) + 1
+      : 0
+
     const { data, error } = await supabase
       .from('project_tasks')
-      .insert({ project_id: projectId, user_id: session.user.id, title, done: false })
+      .insert({ project_id: projectId, user_id: session.user.id, title, done: false, position: nextPosition })
       .select()
       .single()
 
@@ -42,5 +46,16 @@ export function useProjectTasks(projectId: string) {
     else setTasks((prev) => prev.filter((t) => t.id !== id))
   }
 
-  return { tasks, addTask, toggleTask, deleteTask }
+  async function reorderTasks(orderedIds: string[]) {
+    const map = new Map(tasks.map((t) => [t.id, t]))
+    const reordered = orderedIds.map((id, i) => ({ ...map.get(id)!, position: i }))
+    setTasks(reordered)
+    await Promise.all(
+      orderedIds.map((id, i) =>
+        supabase.from('project_tasks').update({ position: i }).eq('id', id)
+      )
+    )
+  }
+
+  return { tasks, addTask, toggleTask, deleteTask, reorderTasks }
 }

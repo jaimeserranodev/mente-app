@@ -1,5 +1,25 @@
 import { useState, useRef, KeyboardEvent } from 'react'
-import { Item, ItemStatus } from '../lib/supabase'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+} from '@dnd-kit/core'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { Item, ItemStatus, ProjectTask } from '../lib/supabase'
 import { useProjectTasks } from '../hooks/useProjectTasks'
 
 interface Props {
@@ -21,30 +41,108 @@ const STATUS_COLORS: Record<string, string> = {
   completado: '#4CAF7D',
 }
 
-/** Parses any common task list format: numbered, bullets, dashes, plain lines */
 function parseLines(raw: string): string[] {
   const text = raw.trim()
   if (!text) return []
-
-  // Multiline: split by newlines (ChatGPT output, numbered lists, etc.)
   if (text.includes('\n')) {
     return text
       .split('\n')
       .map((s) =>
         s
-          .replace(/^\s*\d+[.)]\s*/, '')  // "1. " or "1) "
-          .replace(/^\s*[-•*·]\s*/, '')   // "- " or "• " or "* "
+          .replace(/^\s*\d+[.)]\s*/, '')
+          .replace(/^\s*[-•*·]\s*/, '')
           .trim()
       )
       .filter(Boolean)
   }
-
-  // Single line with inline dash separators: "- task1 - task2"
   const parts = text
     .split(/(?<!\S)-\s+/)
     .map((s) => s.replace(/^[-•*]\s*/, '').trim())
     .filter(Boolean)
   return parts
+}
+
+function SortableTask({
+  task,
+  onToggle,
+  onDelete,
+}: {
+  task: ProjectTask
+  onToggle: (id: string, done: boolean) => void
+  onDelete: (id: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: task.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 group px-2 py-2 rounded-lg hover:bg-black/5"
+    >
+      {/* Drag handle */}
+      <div
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        className="flex-shrink-0 w-7 h-7 flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+        style={{ color: '#C8C4B8', touchAction: 'none' }}
+      >
+        <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+          <circle cx="3" cy="2.5" r="1.5" />
+          <circle cx="7" cy="2.5" r="1.5" />
+          <circle cx="3" cy="7" r="1.5" />
+          <circle cx="7" cy="7" r="1.5" />
+          <circle cx="3" cy="11.5" r="1.5" />
+          <circle cx="7" cy="11.5" r="1.5" />
+        </svg>
+      </div>
+
+      {/* Checkbox */}
+      <button
+        onClick={() => onToggle(task.id, !task.done)}
+        className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border transition-all"
+        style={{
+          borderColor: task.done ? '#4CAF7D' : 'rgba(44,44,44,0.25)',
+          backgroundColor: task.done ? '#4CAF7D' : 'transparent',
+        }}
+      >
+        {task.done && (
+          <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+            <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
+
+      {/* Title */}
+      <span
+        className="flex-1 text-sm"
+        style={{
+          color: task.done ? '#B0AD9F' : '#2C2C2C',
+          textDecoration: task.done ? 'line-through' : 'none',
+        }}
+      >
+        {task.title}
+      </span>
+
+      {/* Delete */}
+      <button
+        onClick={() => onDelete(task.id)}
+        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center rounded-lg hover:bg-black/10"
+        style={{ color: '#8C8C7A' }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  )
 }
 
 export default function ProjectModal({ project, onClose, onUpdate, onDelete }: Props) {
@@ -53,9 +151,22 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
   const [status, setStatus] = useState<ItemStatus>(project.status ?? 'activo')
   const [taskInput, setTaskInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const [activeTask, setActiveTask] = useState<ProjectTask | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { tasks, addTask, toggleTask, deleteTask } = useProjectTasks(project.id)
+  const { tasks, addTask, toggleTask, deleteTask, reorderTasks } = useProjectTasks(project.id)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   const isDirty =
     title !== project.title ||
@@ -102,7 +213,21 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
       setTaskInput('')
       lines.forEach((line) => addTask(line))
     }
-    // Single line: let it paste normally and user can press Añadir/Enter
+  }
+
+  function handleDragStart(event: DragEndEvent) {
+    const { active } = event
+    setActiveTask(tasks.find((t) => t.id === active.id) ?? null)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveTask(null)
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = tasks.findIndex((t) => t.id === active.id)
+    const newIndex = tasks.findIndex((t) => t.id === over.id)
+    const reordered = arrayMove(tasks, oldIndex, newIndex)
+    reorderTasks(reordered.map((t) => t.id))
   }
 
   const done = tasks.filter((t) => t.done).length
@@ -180,9 +305,19 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
           {/* Descripción */}
           <textarea
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value)
+              const el = e.target
+              el.style.height = 'auto'
+              el.style.height = el.scrollHeight + 'px'
+            }}
+            onFocus={(e) => {
+              const el = e.target
+              el.style.height = 'auto'
+              el.style.height = el.scrollHeight + 'px'
+            }}
             placeholder="Descripción del proyecto..."
-            rows={3}
+            rows={4}
             style={{
               width: '100%',
               padding: '10px 12px',
@@ -193,10 +328,11 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
               fontSize: 14,
               outline: 'none',
               resize: 'none',
+              overflow: 'hidden',
             }}
           />
 
-          {/* Guardar cambios si hay */}
+          {/* Guardar cambios */}
           {isDirty && (
             <div className="flex gap-2">
               <button
@@ -238,48 +374,43 @@ export default function ProjectModal({ project, onClose, onUpdate, onDelete }: P
             <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(44,44,44,0.08)' }} />
           </div>
 
-          {/* Lista de tareas */}
+          {/* Lista de tareas con drag & drop */}
           <div className="flex flex-col gap-1">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-3 group px-2 py-2 rounded-lg hover:bg-black/5 active:bg-black/5 transition-colors"
-              >
-                <button
-                  onClick={() => toggleTask(task.id, !task.done)}
-                  className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border transition-all"
-                  style={{
-                    borderColor: task.done ? '#4CAF7D' : 'rgba(44,44,44,0.25)',
-                    backgroundColor: task.done ? '#4CAF7D' : 'transparent',
-                  }}
-                >
-                  {task.done && (
-                    <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                      <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
-                <span
-                  className="flex-1 text-sm"
-                  style={{
-                    color: task.done ? '#B0AD9F' : '#2C2C2C',
-                    textDecoration: task.done ? 'line-through' : 'none',
-                  }}
-                >
-                  {task.title}
-                </span>
-                {/* Delete — always visible on mobile */}
-                <button
-                  onClick={() => deleteTask(task.id)}
-                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center rounded-lg hover:bg-black/10"
-                  style={{ color: '#8C8C7A' }}
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              modifiers={[restrictToVerticalAxis]}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                {tasks.map((task) => (
+                  <SortableTask
+                    key={task.id}
+                    task={task}
+                    onToggle={toggleTask}
+                    onDelete={deleteTask}
+                  />
+                ))}
+              </SortableContext>
+              <DragOverlay>
+                {activeTask && (
+                  <div
+                    className="flex items-center gap-2 px-2 py-2 rounded-lg shadow-lg"
+                    style={{ backgroundColor: '#ECEADE', border: '1.5px solid rgba(107,127,212,0.4)' }}
+                  >
+                    <span className="w-7 h-7 flex items-center justify-center" style={{ color: '#C8C4B8' }}>
+                      <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+                        <circle cx="3" cy="2.5" r="1.5" /><circle cx="7" cy="2.5" r="1.5" />
+                        <circle cx="3" cy="7" r="1.5" /><circle cx="7" cy="7" r="1.5" />
+                        <circle cx="3" cy="11.5" r="1.5" /><circle cx="7" cy="11.5" r="1.5" />
+                      </svg>
+                    </span>
+                    <span className="text-sm" style={{ color: '#2C2C2C' }}>{activeTask.title}</span>
+                  </div>
+                )}
+              </DragOverlay>
+            </DndContext>
 
             {/* Input nueva tarea */}
             <div
